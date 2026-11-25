@@ -53,3 +53,11 @@ def test_getMetrics_keeps_values_that_are_present():
     df = make_analytics(metrics).getMetrics("rs1", dataGroup=True)
     assert df["precision"].tolist() == [0]
     assert df["dataGroup"].tolist() == ["Traffic"]
+
+
+def test_getMetrics_full_returns_only_the_columns_the_api_sent():
+    metrics = [{**METRICS[0], "support": ["oberon", "dataWarehouse", "realtime"]}]
+    df = make_analytics(metrics).getMetrics("rs1", full=True, dataGroup=True)
+    assert "precision" not in df.columns
+    assert "dataGroup" not in df.columns
+    assert df["support_oberon"].tolist() == ["oberon"]
