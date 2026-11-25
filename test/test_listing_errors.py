@@ -117,3 +117,23 @@ def test_getCalculatedMetrics_later_page_error_raises_a_clear_error():
     pages = {0: page([{"id": "cm0"}], 0, 2), 1: CONNECTOR_ERROR}
     with pytest.raises(ValueError, match="getCalculatedMetrics.*Request Error"):
         make_analytics(pages).getCalculatedMetrics(format="raw")
+
+
+def test_connector_error_body_has_no_empty_code_in_the_message():
+    with pytest.raises(ValueError) as excinfo:
+        make_analytics({0: CONNECTOR_ERROR}).getSegments()
+    assert str(excinfo.value).endswith("The API returned: Request Error")
+
+
+def test_threaded_listing_error_names_the_failed_page():
+    pages = {0: page([rs(0)], 0, 3), 1: page([rs(1)], 1, 3), 2: ERROR_BODY}
+    with pytest.raises(ValueError, match="getReportSuites did not return page 2 of"):
+        make_analytics(pages).getReportSuites()
+
+
+def test_while_loop_listing_error_names_the_failed_page():
+    pages = {0: page([{"id": "s0"}], 0, 3), 1: page([{"id": "s1"}], 1, 3), 2: ERROR_BODY}
+    with pytest.raises(ValueError, match="getSegments did not return page 2 of"):
+        make_analytics(pages).getSegments(format="raw")
+    with pytest.raises(ValueError, match="getCalculatedMetrics did not return page 2 of"):
+        make_analytics(pages).getCalculatedMetrics(format="raw")

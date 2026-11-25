@@ -342,7 +342,7 @@ class Analytics:
         if isinstance(res, dict):
             code = res.get("errorCode") or res.get("error_code") or res.get("statusCode")
             description = res.get("errorDescription") or res.get("message") or res.get("error")
-            reason = f"{code}: {description}"
+            reason = ": ".join(str(part) for part in (code, description) if part) or str(res)[:200]
         else:
             reason = str(res)[:200]
         raise ValueError(f"{method} did not return page {page} of the results. The API returned: {reason}")
@@ -360,7 +360,7 @@ class Analytics:
         """
         if self.loggingEnabled:
             self.logger.debug(f"Starting getReportSuite")
-        nb_error, nb_empty = 0, 0  # use for multi-thread loop
+        nb_empty = 0  # use for multi-thread loop
         params = {}
         params.update({'limit': str(limit)})
         params.update({'page': '0'})
@@ -412,8 +412,8 @@ class Analytics:
             if self.loggingEnabled:
                 self.logger.debug(f"saving rsids : {params}")
             df_rsids.to_csv('RSIDS.csv', sep='\t')
-        if nb_error > 0 or nb_empty > 0:
-            message = f'WARNING : Retrieved data are partial.\n{nb_error}/{len(list_urls) + 1} requests returned an error.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve reportSuite or increase limit per request'
+        if nb_empty > 0:
+            message = f'WARNING : Retrieved data are partial.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve reportSuite or increase limit per request'
             if verbose:
                 print(message)
             if self.loggingEnabled:
@@ -437,7 +437,6 @@ class Analytics:
             self.logger.debug(f"Starting getVirtualReportSuites")
         expansion_values = "globalCompanyKey,parentRsid,parentRsidName,timezone,timezoneZoneinfo,currentTimezoneOffset,segmentList,description,modified,isDeleted,dataCurrentAsOf,compatibility,dataSchema,sessionDefinition,curatedComponents,type"
         params = {"limit": limit}
-        nb_error = 0
         nb_empty = 0
         list_urls = []
         if extended_info:
@@ -488,8 +487,8 @@ class Analytics:
             df_vrsids = pd.concat([df_vrsids, df_append], ignore_index=True)
         if save:
             df_vrsids.to_csv('VRSIDS.csv', sep='\t')
-        if nb_error > 0 or nb_empty > 0:
-            message = f'WARNING : Retrieved data are partial.\n{nb_error}/{len(list_urls) + 1} requests returned an error.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve reportSuite or increase limit per request'
+        if nb_empty > 0:
+            message = f'WARNING : Retrieved data are partial.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve reportSuite or increase limit per request'
             if verbose:
                 print(message)
             if self.loggingEnabled:
