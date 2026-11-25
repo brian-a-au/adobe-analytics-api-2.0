@@ -329,6 +329,24 @@ class Analytics:
             df_full.to_csv(f'requests_{int(time.time())}.csv')
         return df_full
 
+    def _checkListingPage(self, res, method: str, page: int = 0) -> None:
+        """
+        Raise a ValueError when a page of a paged listing is an error body instead of a page of results.
+        Arguments:
+            res : REQUIRED : the response of the request.
+            method : REQUIRED : the name of the method, used in the error message.
+            page : OPTIONAL : the page number, used in the error message.
+        """
+        if isinstance(res, dict) and isinstance(res.get('content'), list):
+            return
+        if isinstance(res, dict):
+            code = res.get("errorCode") or res.get("error_code") or res.get("statusCode")
+            description = res.get("errorDescription") or res.get("message") or res.get("error")
+            reason = f"{code}: {description}"
+        else:
+            reason = str(res)[:200]
+        raise ValueError(f"{method} did not return page {page} of the results. The API returned: {reason}")
+
     def getReportSuites(self, txt: str = None, rsid_list: str = None, limit: int = 100, extended_info: bool = False,
                         save: bool = False, verbose: bool = False) -> list:
         """
@@ -356,6 +374,7 @@ class Analytics:
             self.logger.debug(f"parameters : {params}")
         rsids = self.connector.getData(self.endpoint_company + self._getRS,
                                        params=params, headers=self.header)
+        self._checkListingPage(rsids, "getReportSuites")
         content = rsids['content']
         if not extended_info:
             list_content = [{'name': item['name'], 'rsid': item['rsid']}
@@ -377,9 +396,9 @@ class Analytics:
                 res = executor.map(lambda x, y, z: self.connector.getData(
                     x, y, headers=z), list_urls, list_params, listheaders)
             res = list(res)
-            list_data = [val for sublist in [r['content']
-                                             for r in res if 'content' in r.keys()] for val in sublist]
-            nb_error = sum(1 for elem in res if 'error_code' in elem.keys())
+            for page, elem in zip(range(1, callsToMake), res):
+                self._checkListingPage(elem, "getReportSuites", page)
+            list_data = [val for r in res for val in r['content']]
             nb_empty = sum(1 for elem in res if 'content' in elem.keys() and len(
                 elem['content']) == 0)
             if not extended_info:
@@ -434,6 +453,7 @@ class Analytics:
             self.logger.debug(f"params: {params}")
         vrsid = self.connector.getData(
             path, params=params, headers=self.header)
+        self._checkListingPage(vrsid, "getVirtualReportSuites")
         content = vrsid['content']
         if not extended_info:
             list_content = [{'name': item['name'], 'vrsid': item['id']}
@@ -454,9 +474,9 @@ class Analytics:
                 res = executor.map(lambda x, y, z: self.connector.getData(
                     x, y, headers=z), list_urls, list_params, listheaders)
             res = list(res)
-            list_data = [val for sublist in [r['content']
-                                             for r in res if 'content' in r.keys()] for val in sublist]
-            nb_error = sum(1 for elem in res if 'error_code' in elem.keys())
+            for page, elem in zip(range(1, callsToMake), res):
+                self._checkListingPage(elem, "getVirtualReportSuites", page)
+            list_data = [val for r in res for val in r['content']]
             nb_empty = sum(1 for elem in res if 'content' in elem.keys() and len(
                 elem['content']) == 0)
             if not extended_info:
@@ -901,6 +921,7 @@ class Analytics:
             params['page'] = page_nb
             segs = self.connector.getData(self.endpoint_company +
                                           self._getSegments, params=params, headers=self.header)
+            self._checkListingPage(segs, "getSegments", page_nb)
             data += segs['content']
             lastPage = segs['lastPage']
             page_nb += 1
@@ -1121,6 +1142,7 @@ class Analytics:
                 {'expansion': 'reportSuiteName,definition,ownerFullName,modified,tags,categories,compatibility,shares,lastRecordedAccess'})
         metrics = self.connector.getData(self.endpoint_company +
                                          self._getCalcMetrics, params=params)
+        self._checkListingPage(metrics, "getCalculatedMetrics")
         data = metrics['content']
         lastPage = metrics['lastPage']
         if not lastPage:  # check if lastpage is inversed of False
@@ -1130,6 +1152,7 @@ class Analytics:
                 params['page'] = page_nb
                 metrics = self.connector.getData(self.endpoint_company +
                                                  self._getCalcMetrics, params=params, headers=self.header)
+                self._checkListingPage(metrics, "getCalculatedMetrics", page_nb)
                 data += metrics['content']
                 lastPage = metrics['lastPage']
         if format == "raw":
