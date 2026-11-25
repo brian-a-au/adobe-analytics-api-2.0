@@ -117,3 +117,34 @@ def test_getCalculatedMetrics_later_page_error_raises_a_clear_error():
     pages = {0: page([{"id": "cm0"}], 0, 2), 1: CONNECTOR_ERROR}
     with pytest.raises(ValueError, match="getCalculatedMetrics.*Request Error"):
         make_analytics(pages).getCalculatedMetrics(format="raw")
+
+
+# Other paged listings
+
+OTHER_LISTINGS = {
+    "getUsers": lambda ags: ags.getUsers(format="raw"),
+    "getDateRanges": lambda ags: ags.getDateRanges(format="raw"),
+    "getTags": lambda ags: ags.getTags(),
+    "getUsageLogs": lambda ags: ags.getUsageLogs(format="raw"),
+    "getAnnotations": lambda ags: ags.getAnnotations(),
+    "getShares": lambda ags: ags.getShares(),
+}
+
+
+@pytest.mark.parametrize("method", OTHER_LISTINGS)
+def test_other_listings_first_page_error_raises_a_clear_error(method):
+    with pytest.raises(ValueError, match=f"{method}.*server_error: Internal error"):
+        OTHER_LISTINGS[method](make_analytics({0: ERROR_BODY}))
+
+
+@pytest.mark.parametrize("method", OTHER_LISTINGS)
+def test_other_listings_later_page_error_raises_a_clear_error(method):
+    pages = {0: page([{"id": "x0"}], 0, 2), 1: GATEWAY_ERROR}
+    with pytest.raises(ValueError, match=f"{method}.*403025: Profile is not valid"):
+        OTHER_LISTINGS[method](make_analytics(pages))
+
+
+@pytest.mark.parametrize("method", OTHER_LISTINGS)
+def test_other_listings_still_combine_all_pages(method):
+    pages = {0: page([{"id": "x0"}], 0, 2), 1: page([{"id": "x1"}], 1, 2)}
+    assert [item["id"] for item in OTHER_LISTINGS[method](make_analytics(pages))] == ["x0", "x1"]

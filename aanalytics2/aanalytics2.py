@@ -805,6 +805,7 @@ class Analytics:
             params["expansion"] = kwargs.get("expansion", None)
         path = "/users"
         users = self.connector.getData(self.endpoint_company + path, params=params, headers=self.header)
+        self._checkListingPage(users, "getUsers")
         data = users.get('content',[])
         lastPage = users.get('lastPage',True)
         if not lastPage:  # check if lastpage is inversed of False
@@ -820,6 +821,8 @@ class Analytics:
                 res = executor.map(lambda x, y, z: self.connector.getData(x, y, headers=z), list_urls,
                                    list_params, listheaders)
             res = list(res)
+            for page, elem in zip(range(1, callsToMake), res):
+                self._checkListingPage(elem, "getUsers", page)
             users_lists = [elem['content']
                            for elem in res if 'content' in elem.keys()]
             nb_error = sum(1 for elem in res if 'error_code' in elem.keys())
@@ -1353,6 +1356,7 @@ class Analytics:
                 headers=self.header,
                 verbose=verbose
             )
+            self._checkListingPage(dateRanges, "getDateRanges", page)
             all_data.extend(dateRanges['content'])
             if dateRanges.get('lastPage', True):
                 break
@@ -1470,6 +1474,7 @@ class Analytics:
         if kwargs.get('page', False):
             params['page'] = kwargs.get('page', 0)
         res = self.connector.getData(self.endpoint_company + path, params=params, headers=self.header)
+        self._checkListingPage(res, "getTags", params.get('page', 0))
         data = res['content']
         if not res['lastPage']:
             page = res['number'] + 1
@@ -2721,11 +2726,13 @@ class Analytics:
         if self.loggingEnabled:
             self.logger.debug(f"params: {params}")
         res = self.connector.getData(self.endpoint_company + path, params=params, verbose=verbose)
+        self._checkListingPage(res, "getUsageLogs", params["page"])
         data = res['content']
         lastPage = res['lastPage']
         while lastPage == False:
             params["page"] += 1
             res = self.connector.getData(self.endpoint_company + path, params=params, verbose=verbose)
+            self._checkListingPage(res, "getUsageLogs", params["page"])
             data += res['content']
             lastPage = res['lastPage']
             if max_result is not None:
@@ -2815,6 +2822,7 @@ class Analytics:
         data = []
         while lastPage == False:
             res = self.connector.getData(self.endpoint_company + path, params=params)
+            self._checkListingPage(res, "getAnnotations", params['page'])
             data += res.get('content', [])
             lastPage = res.get('lastPage', True)
             params['page'] += 1
@@ -3303,12 +3311,14 @@ class Analytics:
         params = {"limit": 100}
         path = f"/componentmetadata/shares"
         res = self.connector.getData(self.endpoint_company + path, params=params)
+        self._checkListingPage(res, "getShares")
         lastPage = res.get('lastPage', True)
         data = res.get('content', [])
         if lastPage == False:
             params["page"] = 1
             while lastPage == False:
                 res = self.connector.getData(self.endpoint_company + path, params=params)
+                self._checkListingPage(res, "getShares", params["page"])
                 data += res.get('content', [])
                 lastPage = res.get('lastPage', True)
                 params['page'] += 1
