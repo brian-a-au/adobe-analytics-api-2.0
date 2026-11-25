@@ -678,6 +678,10 @@ class AnalyticsShell(cmd.Cmd):
         """Call getCompanyId and let the user pick interactively."""
         try:
             companies = self.login_obj.getCompanyId()
+        except ValueError as exc:
+            console.print(f"[red]Error: {exc}[/red]")
+            return None
+        try:
             if not companies:
                 return None
             console.print("[bold]Available companies:[/bold]")
