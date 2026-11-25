@@ -66,3 +66,20 @@ def test_bulk_sendFiles_uses_the_connector_timeout(monkeypatch, tmp_path):
     data.write_bytes(b"not checked by this test")
     make_bulk((10, 120)).sendFiles(str(data))
     assert seen == [(10, 120)]
+
+
+def test_bulk_sendFiles_removes_its_temp_files_when_an_upload_fails(monkeypatch, tmp_path):
+    import pytest
+    import requests
+
+    def timed_out(*args, **kwargs):
+        raise requests.exceptions.ReadTimeout("read timed out")
+
+    monkeypatch.setattr(ingestion.requests, "post", timed_out)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data.csv").write_text("timestamp,marketingCloudVisitorID\n")
+    bulk = make_bulk((10, 120))
+    with pytest.raises(requests.exceptions.ReadTimeout):
+        bulk.sendFiles("data.csv")
+    assert not (tmp_path / "tmp").exists()
+    assert bulk._createdFiles == []

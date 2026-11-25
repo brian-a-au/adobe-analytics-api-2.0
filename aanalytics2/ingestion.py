@@ -262,16 +262,18 @@ class Bulkapi:
         workers = max(1, workers_input)
         proxies = self.connector.proxies
         timeout = self.connector.timeout
-        with futures.ThreadPoolExecutor(workers) as executor:
-            res = executor.map(lambda x, y, z: requests.post(
-                x, headers=y, files=z, proxies=proxies, timeout=timeout), list_urls, list_headers, list_files)
-            list_res = [response.json() for response in res]
-        # cleaning temp folder
-        if len(self._createdFiles) > 0:
-            for file in self._createdFiles:
-                file_path = Path(file)
-                file_path.unlink()
-            self._createdFiles = []
-            tmp = Path('tmp/')
-            tmp.rmdir()
+        try:
+            with futures.ThreadPoolExecutor(workers) as executor:
+                res = executor.map(lambda x, y, z: requests.post(
+                    x, headers=y, files=z, proxies=proxies, timeout=timeout), list_urls, list_headers, list_files)
+                list_res = [response.json() for response in res]
+        finally:
+            # cleaning temp folder, also when an upload failed or timed out
+            if len(self._createdFiles) > 0:
+                for file in self._createdFiles:
+                    file_path = Path(file)
+                    file_path.unlink()
+                self._createdFiles = []
+                tmp = Path('tmp/')
+                tmp.rmdir()
         return list_res
