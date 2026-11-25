@@ -749,9 +749,6 @@ class Analytics:
                 columns.append('dataGroup')
             if description:
                 columns.append('description')
-            for col in columns:
-                if col not in metrics.columns:
-                    metrics[col] = ""
             if kwargs.get('full', False):
                 new_cols = pd.DataFrame(metrics.support.values.tolist(),
                                         columns=['support_oberon', 'support_dw', 'support_realtime'])
@@ -760,6 +757,9 @@ class Analytics:
                 new_df.drop('support', axis=1, inplace=True)
                 metrics = new_df
             else:
+                for col in columns:
+                    if col not in metrics.columns:
+                        metrics[col] = ""
                 metrics = metrics[columns]
         if save:
             if format == 'df':
