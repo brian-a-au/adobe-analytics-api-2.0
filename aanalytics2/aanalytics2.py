@@ -698,11 +698,11 @@ class Analytics:
         df_dims = pd.DataFrame(dims)
         columns = ['id', 'name', 'category', 'type',
                    'parent', 'pathable']
+        if description:
+            columns.append('description')
         for col in columns:
             if col not in df_dims.columns:
                 df_dims[col] = ""
-        if description:
-            columns.append('description')
         if kwargs.get('full', False):
             new_cols = pd.DataFrame(df_dims.support.values.tolist(),
                                     columns=['support_oberon', 'support_dw',
@@ -749,6 +749,9 @@ class Analytics:
                 columns.append('dataGroup')
             if description:
                 columns.append('description')
+            for col in columns:
+                if col not in metrics.columns:
+                    metrics[col] = ""
             if kwargs.get('full', False):
                 new_cols = pd.DataFrame(metrics.support.values.tolist(),
                                         columns=['support_oberon', 'support_dw', 'support_realtime'])
