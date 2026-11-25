@@ -22,6 +22,9 @@ class PagedConnector:
         self.calls.append(dict(params or {}))
         if len(self.calls) > 10:
             pytest.fail("Too many requests: the paging loop does not stop")
+        if ("limit" in (params or {})) != ("page" in (params or {})):
+            # The live API answers this way when only one of the two is sent.
+            return {"status": "BAD_REQUEST", "message": 'Query parameter "limit", "page" both required if used.'}
         number = int((params or {}).get("page", 0))
         return {"content": [{"id": f"item{number}"}], "number": number,
                 "first": number == 0, "last": number == self.total_pages - 1}
@@ -55,7 +58,7 @@ def test_getCloudLocations_reads_every_page_once_and_keeps_the_filters():
 def test_getCloudAccounts_sends_its_filter():
     ags = make_analytics(1)
     ags.getCloudAccounts(accountType="s3")
-    assert ags.connector.calls[0] == {"type": "s3"}
+    assert ags.connector.calls[0] == {"type": "s3", "limit": 1000, "page": 0}
 
 
 def test_getCloudAccounts_reads_every_page_once_and_keeps_the_filter():

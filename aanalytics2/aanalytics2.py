@@ -3452,16 +3452,18 @@ class Analytics:
         }
         return properties_definition[accountType]
     
-    def getCloudAccounts(self,accountType:str=None)->list:
+    def getCloudAccounts(self,accountType:str=None,limit:int=1000)->list:
         """
         Returns the list of all cloud accounts for the company.
         Arguments:
             accountType : OPTIONAL : The type of the account to filter the accounts. Possible values: "s3", "GCS", "ADLS", "AZURE_BLOB" (default None)
+            limit : OPTIONAL : The number of items to be returned by request (default 1000)
         """
         if self.loggingEnabled:
             self.logger.debug(f"starting getCloudAccounts")
         path = f"/export_locations/analytics/exportlocations/account"
-        params = {}
+        # The API answers BAD_REQUEST when "page" is sent without "limit".
+        params = {"limit": limit, "page": 0}
         if accountType is not None:
             if accountType not in ["s3", "GCS", "ADLS", "AZURE_BLOB"]:
                 raise ValueError("Invalid account type. Possible values: s3, GCS, ADLS, AZURE_BLOB")
