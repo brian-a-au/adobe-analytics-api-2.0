@@ -2,6 +2,7 @@ name: Tests
 
 on:
   push:
+    branches: [master]
   pull_request:
 
 permissions:
@@ -22,6 +23,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
       - name: Install the package with its test dependencies
         run: python -m pip install -e ".[test]"
       # test_core_analytics.py signs in to Adobe Analytics, so it needs real
