@@ -204,6 +204,8 @@ def configure(org_id: str = None,
         timeout : OPTIONAL : Seconds to wait for the API, either one number or a (connect, read) pair
                         such as (10, 300). In a JSON config file, use a number or a list such as [10, 300].
                         Default None, which uses (10, 300): 10 seconds to connect and 300 seconds to read.
+                        A request that times out raises requests.exceptions.Timeout and is not sent again.
+                        Use (10, None) to wait for the server without a limit, as before.
         return_object : OPTIONAL : If True, returns an isolated config bundle dict with 'config' and 'header'
                         keys that can be passed directly to Login or Analytics via **bundle.
                         Does NOT update the global config state, enabling multiple credentials to coexist.

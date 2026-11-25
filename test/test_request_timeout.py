@@ -97,7 +97,9 @@ def test_configure_stores_the_timeout(monkeypatch):
     assert configs.config_object["timeout"] == 45
 
 
-def test_configure_return_object_keeps_the_timeout():
+def test_configure_return_object_keeps_the_timeout(monkeypatch):
+    monkeypatch.setattr(configs, "config_object", dict(config_module.config_object))
+    monkeypatch.setattr(configs, "header", dict(config_module.header))
     bundle = configs.configure(org_id="o", client_id="c", secret="s", scopes="openid",
                                timeout=45, return_object=True)
     assert bundle.config["timeout"] == 45
@@ -111,3 +113,66 @@ def test_importConfigFile_reads_the_timeout(tmp_path, monkeypatch):
     path.write_text('{"org_id": "o", "client_id": "c", "secret": "s", "scopes": "openid", "timeout": [5, 60]}')
     configs.importConfigFile(str(path))
     assert configs.config_object["timeout"] == [5, 60]
+
+
+def slow_server(delay: float):
+    """A local server that waits before it answers, and counts the requests it gets."""
+    import json as _json
+    import threading
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    received = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def respond(self):
+            received.append(self.command)
+            self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            time.sleep(delay)
+            content = _json.dumps({"late": True}).encode()
+            try:
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+            except OSError:
+                pass
+
+        do_GET = do_POST = respond
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.01})
+    thread.start()
+    return server, thread, received
+
+
+def test_a_read_timeout_is_not_retried_so_a_post_is_sent_once(monkeypatch):
+    import pytest
+    monkeypatch.setattr(time, "sleep", time.sleep)
+    server, thread, received = slow_server(1)
+    try:
+        conn = connector.AdobeRequest(config_object=make_config(timeout=[1, 0.2]), header={})
+        conn.session.trust_env = False
+        url = f"http://127.0.0.1:{server.server_port}/segments"
+        with pytest.raises(requests.exceptions.Timeout):
+            conn.postData(url, data={"name": "test"})
+        assert received == ["POST"]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+
+def test_configure_return_object_does_not_need_the_global_config(monkeypatch):
+    monkeypatch.setattr(configs, "config_object", dict(config_module.config_object))
+    monkeypatch.setattr(configs, "header", dict(config_module.header))
+    bundle = configs.configure(org_id="o", client_id="c", secret="s", scopes="openid",
+                               timeout=(10, None), return_object=True)
+    assert bundle.config["timeout"] == (10, None)
+
+
+def test_the_adapter_keeps_its_timeout_after_pickling():
+    import pickle
+    adapter = connector.TimeoutHTTPAdapter(timeout=(3, 30))
+    assert pickle.loads(pickle.dumps(adapter)).timeout == (3, 30)
