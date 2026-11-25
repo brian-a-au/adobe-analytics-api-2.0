@@ -21,13 +21,16 @@ class DIAPI:
         example : "xxxx.sc.omtrdc.net"
     """
 
-    def __init__(self, rsid: str = None, tracking_server: str = None, verbose: bool = False):
+    def __init__(self, rsid: str = None, tracking_server: str = None, verbose: bool = False, timeout=None):
         """
         Arguments:
             rsid : REQUIRED : Report Suite ID
             tracking_server : REQUIRED : tracking server for tracking.
             verbose : OPTIONAL : Print diagnostic messages to stdout when True (default False).
+            timeout : OPTIONAL : Seconds to wait for the tracking server, either one number or a (connect, read) pair.
+                Default None, which uses (10, 300): 10 seconds to connect and 300 seconds to read.
         """
+        self.timeout = connector.normalize_timeout(timeout)
         if rsid is None:
             raise Exception("Expecting a ReportSuite ID (rsid)")
         self.rsid = rsid
@@ -74,7 +77,7 @@ class DIAPI:
         endpoint = f"https://{self.tracking_server}/b/ss/{self.rsid}/0"
         params = {"pageName": pageName, "g": g,
                   "pe": pe, "pev1": pev1, "pev2": pev2, "events": events, **kwargs}
-        res = requests.get(endpoint, params=params, headers=header)
+        res = requests.get(endpoint, params=params, headers=header, timeout=self.timeout)
         return res
 
     def postMethod(self, pageName: str = None, pageURL: str = None, linkType: str = None, linkURL: str = None, linkName: str = None, events: str = None, **kwargs):
@@ -103,7 +106,7 @@ class DIAPI:
         myxml = dxml.dicttoxml(
             dictionary, custom_root='request', attr_type=False)
         xml_data = myxml.decode()
-        res = requests.post(endpoint, data=xml_data, headers=header)
+        res = requests.post(endpoint, data=xml_data, headers=header, timeout=self.timeout)
         return res
 
 
@@ -183,7 +186,8 @@ class Bulkapi:
             with open(file, "rb") as f:
                 data = f.read()
         res = requests.post(self.endpoint + path, files={"file": (None, data)},
-                            headers=self.header, proxies=self.connector.proxies)
+                            headers=self.header, proxies=self.connector.proxies,
+                            timeout=self.connector.timeout)
         return res
 
     def generateTemplate(self, includeAdv: bool = False, returnDF: bool = False, save: bool = True):
@@ -257,9 +261,10 @@ class Bulkapi:
         workers_input = kwargs.get("workers", 4)
         workers = max(1, workers_input)
         proxies = self.connector.proxies
+        timeout = self.connector.timeout
         with futures.ThreadPoolExecutor(workers) as executor:
             res = executor.map(lambda x, y, z: requests.post(
-                x, headers=y, files=z, proxies=proxies), list_urls, list_headers, list_files)
+                x, headers=y, files=z, proxies=proxies, timeout=timeout), list_urls, list_headers, list_files)
             list_res = [response.json() for response in res]
         # cleaning temp folder
         if len(self._createdFiles) > 0:
