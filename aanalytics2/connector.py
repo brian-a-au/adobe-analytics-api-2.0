@@ -27,6 +27,38 @@ def normalize_proxy(proxy: Union[str, Dict[str, str], None]) -> Optional[Dict[st
     return proxy
 
 
+# Seconds to wait for a connection, and then for the server to send data.
+DEFAULT_TIMEOUT = (10, 300)
+
+
+def normalize_timeout(timeout: Union[float, tuple, list, None]) -> Union[float, tuple]:
+    """
+    Return the timeout to pass to ``requests``.
+
+    Arguments:
+        timeout : a number of seconds, a (connect, read) pair, or None for DEFAULT_TIMEOUT.
+            A list such as [10, 300], as read from a JSON config file, is turned into a tuple.
+    """
+    if timeout is None:
+        return DEFAULT_TIMEOUT
+    if isinstance(timeout, list):
+        return tuple(timeout)
+    return timeout
+
+
+class TimeoutHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter that applies a default timeout to requests sent without one."""
+
+    def __init__(self, *args, timeout: Union[float, tuple] = DEFAULT_TIMEOUT, **kwargs) -> None:
+        self.timeout = timeout
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
+        return super().send(request, **kwargs)
+
+
 def get_oauth_token_and_expiry_for_config(config:dict,verbose:bool=False,save:bool=False)->Dict[str,str]:
         """
         Retrieve the access token by using the OAuth information provided by the user
@@ -46,7 +78,8 @@ def get_oauth_token_and_expiry_for_config(config:dict,verbose:bool=False,save:bo
         }
         response = requests.post(
             config["oauthTokenEndpointV2"], data=oauth_payload,
-            proxies=normalize_proxy(config.get("proxy")))
+            proxies=normalize_proxy(config.get("proxy")),
+            timeout=normalize_timeout(config.get("timeout")))
         json_response = response.json()
         if 'access_token' in json_response.keys():
             token = json_response['access_token']
@@ -109,6 +142,7 @@ class AdobeRequest:
         # and from _checkingDate on token refresh) always sees the resolved value, even when
         # proxy was only passed as an explicit constructor argument rather than via config_object.
         self.config['proxy'] = self.proxies
+        self.timeout = normalize_timeout(self.config.get('timeout'))
         if self.config['token'] == '' or time.time() > self.config['date_limit']:
             token_and_expiry = get_oauth_token_and_expiry_for_config(
                 config=self.config, verbose=verbose)
@@ -137,6 +171,8 @@ class AdobeRequest:
 
         The adapter honours the ``Retry-After`` response header so the wait
         time advertised by the server is respected automatically.
+
+        The adapter also applies ``self.timeout`` to every request that does not set its own.
         """
         session = requests.Session()
         retry_strategy = Retry(
@@ -148,7 +184,7 @@ class AdobeRequest:
             respect_retry_after_header=True,  # honour Retry-After on 429
             raise_on_status=False,          # return the last response instead of raising
         )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
+        adapter = TimeoutHTTPAdapter(max_retries=retry_strategy, timeout=self.timeout)
         session.mount("https://", adapter)
         session.mount("http://", adapter)
         session.headers.update(self.header)

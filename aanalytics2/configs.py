@@ -2,7 +2,7 @@ import json
 import os
 from copy import deepcopy
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 import time
 
 # Non standard libraries
@@ -68,7 +68,8 @@ class ConfigObj:
             "date_limit": self.config.get("date_limit"),
             "token": "",
             "oauthTokenEndpointV2" : "https://ims-na1.adobelogin.com/ims/token/v3",
-            "proxy": self.config.get("proxy")
+            "proxy": self.config.get("proxy"),
+            "timeout": self.config.get("timeout")
         }
 
 
@@ -171,6 +172,8 @@ def importConfigFile(path: str = None, auth_type: str = None, return_object: boo
             args["scopes"] = provided_config["scopes"].replace(' ','')
         if 'proxy' in provided_keys:
             args["proxy"] = provided_config["proxy"]
+        if 'timeout' in provided_keys:
+            args["timeout"] = provided_config["timeout"]
         return configure(**args, return_object=return_object)
 
 
@@ -183,6 +186,7 @@ def configure(org_id: str = None,
               token: str = None,
               scopes: str = None,
               proxy: Optional[str] = None,
+              timeout: Optional[Union[float, list, tuple]] = None,
               return_object: bool = False
               ) -> Optional["ConfigObj"]:
     """Performs programmatic configuration of the API using provided values.
@@ -197,6 +201,9 @@ def configure(org_id: str = None,
         proxy : OPTIONAL : Proxy to use for all requests (e.g. "http://proxy.example.com:8080"), for organizations
                         that need to reach the Adobe Analytics API through a proxy. Applied to both http
                         and https traffic. Not required — omit it to connect directly (no proxy).
+        timeout : OPTIONAL : Seconds to wait for the API, either one number or a (connect, read) pair
+                        such as (10, 300). In a JSON config file, use a number or a list such as [10, 300].
+                        Default None, which uses (10, 300): 10 seconds to connect and 300 seconds to read.
         return_object : OPTIONAL : If True, returns an isolated config bundle dict with 'config' and 'header'
                         keys that can be passed directly to Login or Analytics via **bundle.
                         Does NOT update the global config state, enabling multiple credentials to coexist.
@@ -228,6 +235,7 @@ def configure(org_id: str = None,
             "token": "",
             "oauthTokenEndpointV2": "https://ims-na1.adobelogin.com/ims/token/v3",
             "proxy": proxy,
+            "timeout": timeout,
         }
         local_header = {
             "Accept": "application/json",
@@ -248,6 +256,7 @@ def configure(org_id: str = None,
     config_object["secret"] = secret
     config_object["scopes"] = scopes
     config_object["proxy"] = proxy
+    config_object["timeout"] = timeout
     # ensure the reset of the state by overwriting possible values from previous import.
     config_object["date_limit"] = 0
     config_object["token"] = ""
