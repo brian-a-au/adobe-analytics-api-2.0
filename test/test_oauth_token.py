@@ -56,3 +56,16 @@ def test_token_response_returns_the_token_and_expiry(monkeypatch):
         fake_post({"access_token": "abc", "token_type": "bearer", "expires_in": 86399}),
     )
     assert connector.get_oauth_token_and_expiry_for_config(dict(CONFIG)) == {"token": "abc", "expiry": 86399}
+
+
+def test_token_error_without_a_description_has_no_trailing_colon(monkeypatch):
+    monkeypatch.setattr(connector.requests, "post", fake_post({"error": "invalid_scope"}))
+    with pytest.raises(Exception) as excinfo:
+        connector.get_oauth_token_and_expiry_for_config(dict(CONFIG))
+    assert str(excinfo.value) == "The OAuth token request failed. invalid_scope"
+
+
+def test_token_response_without_an_error_key_shows_the_body(monkeypatch):
+    monkeypatch.setattr(connector.requests, "post", fake_post({"message": "Service unavailable"}))
+    with pytest.raises(Exception, match='The OAuth token request failed. {"message": "Service unavailable"}'):
+        connector.get_oauth_token_and_expiry_for_config(dict(CONFIG))
