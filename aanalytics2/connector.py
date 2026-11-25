@@ -49,6 +49,8 @@ def normalize_timeout(timeout: Union[float, tuple, list, None]) -> Union[float, 
 class TimeoutHTTPAdapter(HTTPAdapter):
     """HTTPAdapter that applies a default timeout to requests sent without one."""
 
+    __attrs__ = HTTPAdapter.__attrs__ + ["timeout"]
+
     def __init__(self, *args, timeout: Union[float, tuple] = DEFAULT_TIMEOUT, **kwargs) -> None:
         self.timeout = timeout
         super().__init__(*args, **kwargs)
@@ -183,6 +185,9 @@ class AdobeRequest:
             backoff_factor=1,               # waits 0 s, 2 s, 4 s, 8 s … between attempts
             respect_retry_after_header=True,  # honour Retry-After on 429
             raise_on_status=False,          # return the last response instead of raising
+            # Do not resend a request after a read timeout: the server may have done the work,
+            # e.g., created a segment. requests then raises requests.exceptions.ReadTimeout.
+            read=False,
         )
         adapter = TimeoutHTTPAdapter(max_retries=retry_strategy, timeout=self.timeout)
         session.mount("https://", adapter)
