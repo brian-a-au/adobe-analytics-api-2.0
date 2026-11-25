@@ -52,7 +52,11 @@ def get_oauth_token_and_expiry_for_config(config:dict,verbose:bool=False,save:bo
             token = json_response['access_token']
             expiry = json_response["expires_in"]
         else:
-            return json.dumps(json_response,indent=2)
+            if 'error' in json_response.keys():
+                reason = f"{json_response['error']}: {json_response.get('error_description', '')}"
+            else:
+                reason = json.dumps(json_response)
+            raise Exception(f"The OAuth token request failed. {reason}")
         if save:
             with open('token.txt', 'w') as f:
                 f.write(token)
