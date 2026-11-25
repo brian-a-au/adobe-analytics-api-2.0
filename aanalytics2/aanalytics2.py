@@ -671,8 +671,24 @@ class Analytics:
             self.logger.debug(f"validateVirtualReportSuite response : {res}")
         return res
 
+    def _componentExpansions(self, tags: bool = False, expansion: str | list = None) -> list:
+        """
+        Return the list of expansion values for getDimensions and getMetrics, without duplicates.
+        Arguments:
+            tags : OPTIONAL : if True, add "tags".
+            expansion : OPTIONAL : a comma-separated string or a list of expansion values.
+        """
+        values = ['tags'] if tags else []
+        if isinstance(expansion, str):
+            expansion = expansion.split(',')
+        for value in expansion or []:
+            value = value.strip()
+            if value and value not in values:
+                values.append(value)
+        return values
+
     def getDimensions(self, rsid: str, tags: bool = False, description: bool = False, save=False,format='df',
-                      **kwargs) -> JsonListOrDataFrameType:
+                      expansion: str | list = None, **kwargs) -> JsonListOrDataFrameType:
         """
         Retrieve the list of dimensions from a specific reportSuite. Shrink columns to simplify output.
         Returns the data frame of available dimensions.
@@ -682,6 +698,9 @@ class Analytics:
             description : OPTIONAL : Trying to add the description column. It may break the method.
             save : OPTIONAL : If set to True, it will save the info in a csv file (bool : default False)
             format : OPTIONAL : Specify the type of format to return, default "df" for dataframe, other options "raw" for a list.
+            expansion : OPTIONAL : Additional fields to request, as a comma-separated string or a list.
+                e.g. "attributionModel,allowedForReporting". The fields are added to the dataframe columns.
+                The API returns most of these fields only when "attributionModel" is also requested.
         Possible kwargs:
             full : Boolean : Doesn't shrink the number of columns if set to true
             example : getDimensions(rsid,full=True)
@@ -689,8 +708,9 @@ class Analytics:
         if self.loggingEnabled:
             self.logger.debug(f"Starting getDimensions")
         params = {}
-        if tags:
-            params.update({'expansion': 'tags'})
+        expansions = self._componentExpansions(tags, expansion)
+        if expansions:
+            params.update({'expansion': ','.join(expansions)})
         params.update({'rsid': rsid})
         dims = self.connector.getData(self.endpoint_company + self._getDimensions, params=params, headers=self.header)
         if format == 'raw':
@@ -700,6 +720,7 @@ class Analytics:
                    'parent', 'pathable']
         if description:
             columns.append('description')
+        columns += [value for value in expansions if value not in columns]
         for col in columns:
             if col not in df_dims.columns:
                 df_dims[col] = ""
@@ -717,7 +738,7 @@ class Analytics:
         return df_dims
 
     def getMetrics(self, rsid: str, tags: bool = False, save=False, description: bool = False, dataGroup: bool = False, format:str='df',
-                   **kwargs) -> JsonListOrDataFrameType:
+                   expansion: str | list = None, **kwargs) -> JsonListOrDataFrameType:
         """
         Retrieve the list of metrics from a specific reportSuite. Shrink columns to simplify output.
         Returns the data frame of available metrics.
@@ -728,14 +749,17 @@ class Analytics:
                 May break the report.
             save : OPTIONAL : If set to True, it will save the info in a csv file (bool : default False)
             format : OPTIONAL : Specify the type of format to return, default "df" for dataframe, other options "raw" for a list.
+            expansion : OPTIONAL : Additional fields to request, as a comma-separated string or a list.
+                e.g. "allowedForReporting,categories". The fields are added to the dataframe columns.
         Possible kwargs:
             full : Boolean : Doesn't shrink the number of columns if set to true.
         """
         if self.loggingEnabled:
             self.logger.debug(f"Starting getMetrics")
         params = {}
-        if tags:
-            params.update({'expansion': 'tags'})
+        expansions = self._componentExpansions(tags, expansion)
+        if expansions:
+            params.update({'expansion': ','.join(expansions)})
         params.update({'rsid': rsid})
         metrics = self.connector.getData(self.endpoint_company +
                                          self._getMetrics, 
@@ -749,6 +773,7 @@ class Analytics:
                 columns.append('dataGroup')
             if description:
                 columns.append('description')
+            columns += [value for value in expansions if value not in columns]
             for col in columns:
                 if col not in metrics.columns:
                     metrics[col] = ""
