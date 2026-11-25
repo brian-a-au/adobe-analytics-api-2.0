@@ -3384,20 +3384,21 @@ class Analytics:
         if self.loggingEnabled:
             self.logger.debug(f"starting getCloudLocations")
         path = f"/export_locations/analytics/exportlocations/location"
-        params = {"limit": limit}
+        # The API answers BAD_REQUEST when "limit" is sent without "page".
+        params = {"limit": limit, "page": 0}
         if accountUuid is not None:
             params['accountUuid'] = accountUuid
         if application is not None:
             params['application'] = application
-        res = self.connector.getData(self.endpoint_company + path)
+        res = self.connector.getData(self.endpoint_company + path, params=params)
         data = res.get('content', [])
         last = res.get('last', True)
+        page = 0
         while last == False:
-            params = {"page": 1}
-            res = self.connector.getData(self.endpoint_company + path, params=params)
+            page += 1
+            res = self.connector.getData(self.endpoint_company + path, params={**params, "page": page})
             data += res.get('content', [])
             last = res.get('last', True)
-            params['page'] += 1
         return data
     
     def getCloudLocationProperties(self, accountType: str = None) -> dict:
@@ -3465,15 +3466,15 @@ class Analytics:
             if accountType not in ["s3", "GCS", "ADLS", "AZURE_BLOB"]:
                 raise ValueError("Invalid account type. Possible values: s3, GCS, ADLS, AZURE_BLOB")
             params['type'] = accountType
-        res = self.connector.getData(self.endpoint_company + path)
+        res = self.connector.getData(self.endpoint_company + path, params=params)
         data = res.get('content', [])
         last = res.get('last', True)
+        page = 0
         while last == False:
-            params = {"page": 1}
-            res = self.connector.getData(self.endpoint_company + path, params=params)
+            page += 1
+            res = self.connector.getData(self.endpoint_company + path, params={**params, "page": page})
             data += res.get('content', [])
             last = res.get('last', True)
-            params['page'] += 1
         return data
     
     def getCloudAccount(self, uuid: str = None) -> dict:
