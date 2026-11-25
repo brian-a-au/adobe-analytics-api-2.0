@@ -838,3 +838,17 @@ def test_core_methods_silence_stdout_unless_verbose_true(capsys):
     assert dummy.createSegment(None, verbose=True) is None
     assert "No segment data has been pushed" in capsys.readouterr().out
 
+
+
+def test_main_exits_with_the_getCompanyId_error_message(startup, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["aanalytics2-mcp", "-rsid", "rs1"])
+    monkeypatch.setattr(mcp_server, "_company_id_from_config_file", lambda path: None)
+    mcp_server.Login.return_value.getCompanyId.side_effect = ValueError(
+        "getCompanyId did not return the list of IMS orgs. The API returned: 403003: Api Key is invalid")
+
+    with pytest.raises(SystemExit) as error:
+        mcp_server.main()
+
+    assert error.value.code == 1
+    assert "403003: Api Key is invalid" in capsys.readouterr().err
+    startup.assert_not_called()

@@ -1696,7 +1696,11 @@ def main():
     login = Login(config=cfg)
     company_id = args.company_id or _company_id_from_config_file(args.config_file)
     if company_id is None:
-        companies = login.getCompanyId()
+        try:
+            companies = login.getCompanyId()
+        except ValueError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
         if not companies:
             print("No company IDs found for this config file.", file=sys.stderr)
             sys.exit(1)

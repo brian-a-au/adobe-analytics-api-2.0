@@ -80,9 +80,12 @@ class Login:
         self.retry = retry
         self.proxy = self.connector.proxies
 
-    def getCompanyId(self, verbose: bool = False) -> dict:
+    def getCompanyId(self, verbose: bool = False) -> list:
         """
         Retrieve the company ids for later call for the properties.
+        Returns the companies of the IMS org set as org_id in the configuration.
+        If no IMS org matches org_id, returns the companies of the first IMS org.
+        Raises a ValueError when the API returns an error or no IMS org.
         """
         if self.loggingEnabled:
             self.logger.debug("getCompanyId start")
@@ -91,17 +94,28 @@ class Login:
         json_res = res
         if self.loggingEnabled:
             self.logger.debug(f"getCompanyId reponse: {json_res}")
-        try:
-            companies = json_res['imsOrgs'][0]['companies']
-            self.COMPANY_IDS = json_res['imsOrgs'][0]['companies']
-            return companies
-        except:
+        orgs = json_res.get('imsOrgs') if isinstance(json_res, dict) else None
+        if not isinstance(orgs, list):
             if verbose:
-                print("exception when trying to get companies with parameter 'all'")
                 print(json_res)
             if self.loggingEnabled:
                 self.logger.error(f"Error trying to get companyId: {json_res}")
-            return None
+            if isinstance(json_res, dict):
+                code = json_res.get("errorCode") or json_res.get("error_code") or json_res.get("statusCode")
+                description = json_res.get("errorDescription") or json_res.get("message") or json_res.get("error")
+                reason = f"{code}: {description}"
+            else:
+                reason = str(json_res)[:200]
+            raise ValueError(f"getCompanyId did not return the list of IMS orgs. The API returned: {reason}")
+        if len(orgs) == 0:
+            raise ValueError(
+                "getCompanyId found no IMS org for these credentials. "
+                "Check that the integration has access to Adobe Analytics.")
+        org_id = self.connector.config.get('org_id')
+        org = next((elem for elem in orgs if elem.get('imsOrgId') == org_id), orgs[0])
+        companies = org.get('companies', [])
+        self.COMPANY_IDS = companies
+        return companies
 
     def createAnalyticsConnection(self, companyId: str = None, loggingObject: dict = None, verbose: bool = False) -> object:
         """
