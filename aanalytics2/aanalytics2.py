@@ -680,11 +680,12 @@ class Analytics:
         """
         values = ['tags'] if tags else []
         if isinstance(expansion, str):
-            expansion = expansion.split(',')
-        for value in expansion or []:
-            value = value.strip()
-            if value and value not in values:
-                values.append(value)
+            expansion = [expansion]
+        for item in expansion or []:
+            for value in str(item or '').split(','):
+                value = value.strip()
+                if value and value not in values:
+                    values.append(value)
         return values
 
     def getDimensions(self, rsid: str, tags: bool = False, description: bool = False, save=False,format='df',

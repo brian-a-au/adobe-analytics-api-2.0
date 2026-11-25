@@ -72,3 +72,10 @@ def test_getMetrics_keeps_expanded_fields_in_the_dataframe():
     df = make_analytics(METRICS).getMetrics("rs1", expansion=["allowedForReporting", "categories"])
     assert list(df.columns)[-2:] == ["allowedForReporting", "categories"]
     assert df["allowedForReporting"].tolist() == [True]
+
+
+def test_expansion_list_items_are_split_on_commas_and_empty_items_skipped():
+    ags = make_analytics(DIMENSIONS)
+    ags.getDimensions("rs1", tags=True, expansion=["attributionModel,allowedForReporting", None, "", "tags"],
+                      format="raw")
+    assert ags.connector.calls[0]["expansion"] == "tags,attributionModel,allowedForReporting"
