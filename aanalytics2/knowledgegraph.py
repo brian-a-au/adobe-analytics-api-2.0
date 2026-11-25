@@ -78,7 +78,11 @@ class KnowledgeGraph:
         self.dateRanges = self.analyticsAPI.getDateRanges(extended_info=True,format='raw')
         if len(self.projects) == 0:
             self.projects = self.analyticsAPI.getProjects(format='raw')
-        self.annotations = self.analyticsAPI.getAnnotations()
+        try:
+            self.annotations = self.analyticsAPI.getAnnotations()
+        except ValueError:
+            # The graph does not use annotations yet, so a user who cannot read them can still build it.
+            self.annotations = []
         self.namespaces = {
             "calculatedMetrics" : Namespace(f"http://analytics.com/{self.companyId}/calculatedMetric#"),
             "segments" : Namespace(f"http://analytics.com/{self.companyId}/segment#"),

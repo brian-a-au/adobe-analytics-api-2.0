@@ -798,7 +798,7 @@ class Analytics:
         if self.loggingEnabled:
             self.logger.debug(f"Starting getUsers")
         list_urls = []
-        nb_error, nb_empty = 0, 0  # use for multi-thread loop
+        nb_empty = 0  # use for multi-thread loop
         params = {'limit': kwargs.get('limit', 100)}
         if kwargs.get("expansion", None) is not None:
             params["expansion"] = kwargs.get("expansion", None)
@@ -824,7 +824,6 @@ class Analytics:
                 self._checkListingPage(elem, "getUsers", page)
             users_lists = [elem['content']
                            for elem in res if 'content' in elem.keys()]
-            nb_error = sum(1 for elem in res if 'error_code' in elem.keys())
             nb_empty = sum(1 for elem in res if 'content' in elem.keys()
                            and len(elem['content']) == 0)
             append_data = [val for sublist in [data for data in users_lists]
@@ -845,9 +844,9 @@ class Analytics:
             df_users['lastAccess'] = pd.to_datetime(df_users['lastAccess'])
         if save:
             df_users.to_csv(f'users_{int(time.time())}.csv', sep='\t')
-        if (nb_error > 0 or nb_empty > 0) and verbose:
+        if nb_empty > 0 and verbose:
             print(
-                f'WARNING : Retrieved data are partial.\n{nb_error}/{len(list_urls) + 1} requests returned an error.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve users or increase limit')
+                f'WARNING : Retrieved data are partial.\n{nb_empty}/{len(list_urls)} requests returned an empty response. \nTry to use filter to retrieve users or increase limit')
         return df_users
 
     def getUserMe(self, loginId: str = None) -> dict:

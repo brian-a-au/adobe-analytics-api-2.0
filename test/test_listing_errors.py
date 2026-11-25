@@ -166,3 +166,10 @@ def test_while_loop_listing_error_names_the_failed_page():
         make_analytics(pages).getSegments(format="raw")
     with pytest.raises(ValueError, match="getCalculatedMetrics did not return page 2 of"):
         make_analytics(pages).getCalculatedMetrics(format="raw")
+
+
+def test_recursive_and_while_loop_listings_name_the_failed_page():
+    pages = {0: page([{"id": "x0"}], 0, 3), 1: page([{"id": "x1"}], 1, 3), 2: ERROR_BODY}
+    for method in ("getTags", "getUsageLogs", "getUsers", "getDateRanges", "getAnnotations", "getShares"):
+        with pytest.raises(ValueError, match=f"{method} did not return page 2 of"):
+            OTHER_LISTINGS[method](make_analytics(pages))

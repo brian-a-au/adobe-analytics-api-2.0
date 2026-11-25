@@ -948,3 +948,12 @@ def test_incremental_save_preserves_original_turtle_snapshot(project_graph_facto
     assert original.read_bytes() == original_bytes
     assert isomorphic(Graph().parse(str(original), format="turtle"), source.graph)
     assert isomorphic(Graph().parse(str(tmp_path / "new_snapshot.ttl"), format="turtle"), kg.graph)
+
+
+def test_graph_builds_without_annotations_when_they_cannot_be_read(graph_factory, monkeypatch):
+    def no_access(self, **kwargs):
+        raise ValueError("getAnnotations did not return page 0 of the results. The API returned: forbidden")
+
+    monkeypatch.setattr(Analytics, "getAnnotations", no_access)
+    kg = graph_factory()
+    assert kg.annotations == []
